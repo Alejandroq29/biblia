@@ -1,0 +1,260 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Biblia Kids - Backend API REST para gestión de contenido bíblico educativo
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================================
+// AUTENTICACIÓN Y USUARIOS
+// ============================================================================
+
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique @db.VarChar(180)
+  username     String?  @unique @db.VarChar(100)
+  passwordHash String?  @map("password_hash") @db.Text
+  role         String   @default("user") @db.VarChar(50) // admin, editor, user
+  status       String   @default("active") @db.VarChar(30)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+
+  profile      UserProfile?
+  authAccounts AuthAccount[]
+  sessions     UserSession[]
+  progresses   UserProgress[]
+  favorites    UserFavorite[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  userId          String    @id @map("user_id") @db.Uuid
+  firstName       String    @map("first_name") @db.VarChar(100)
+  lastName        String    @map("last_name") @db.VarChar(100)
+  dateOfBirth     DateTime? @map("date_of_birth") @db.Date
+  avatarData      Bytes?    @map("avatar_data") @db.ByteA
+  avatarMimeType  String?   @map("avatar_mime_type") @db.VarChar(30)
+  avatarUpdatedAt DateTime? @map("avatar_updated_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model AuthAccount {
+  id                String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String @map("user_id") @db.Uuid
+  provider          String @db.VarChar(50)
+  providerAccountId String @map("provider_account_id") @db.VarChar(200)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model UserSession {
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  sealedTokens String @map("sealed_tokens") @db.Text
+
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+// ============================================================================
+// CONTENIDO BÍBLICO: LIBROS, CAPÍTULOS Y VERSÍCULOS
+// ============================================================================
+
+model Book {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique @db.VarChar(50) // genesis, exodus, ...
+  name      String   @db.VarChar(100)
+  testament String   @db.VarChar(20) // OT, NT
+  order     Int      // Orden en la Biblia (1-66)
+  chapters  Chapter[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([testament])
+  @@index([order])
+  @@map("books")
+}
+
+model Chapter {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookId    String   @map("book_id") @db.Uuid
+  number    Int
+  verses    Verse[]
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, number])
+  @@index([bookId])
+  @@map("chapters")
+}
+
+model Verse {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chapterId String   @map("chapter_id") @db.Uuid
+  number    Int
+  text      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([chapterId, number])
+  @@index([chapterId])
+  @@map("verses")
+}
+
+// ============================================================================
+// CONTENIDO EDUCATIVO: HISTORIAS, NIVELES Y JUEGOS
+// ============================================================================
+
+model BiblicalStory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String   @db.VarChar(200)
+  description String   @db.Text
+  content     String   @db.Text
+  levelId     String   @map("level_id") @db.Uuid
+  imageUrl    String?  @map("image_url") @db.VarChar(500)
+  status      String   @default("published") @db.VarChar(30) // published, draft
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+
+  level   Level       @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  games   Game[]
+  favorites UserFavorite[] @relation("StoryFavorites")
+
+  @@index([levelId])
+  @@index([status])
+  @@map("biblical_stories")
+}
+
+model Level {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String   @unique @db.VarChar(50)
+  name        String   @db.VarChar(100)
+  description String?  @db.Text
+  order       Int      // Orden de dificultad (1 = principiante, 5 = avanzado)
+  minAge      Int?     @map("min_age")
+  maxAge      Int?     @map("max_age")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  stories   BiblicalStory[]
+  games     Game[]
+  progresses UserProgress[]
+
+  @@index([order])
+  @@map("levels")
+}
+
+model Game {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String   @db.VarChar(200)
+  description String   @db.Text
+  type        String   @db.VarChar(50) // quiz, memory, puzzle, etc.
+  storyId     String?  @map("story_id") @db.Uuid
+  levelId     String   @map("level_id") @db.Uuid
+  rules       String   @db.Text // JSON con reglas del juego
+  imageUrl    String?  @map("image_url") @db.VarChar(500)
+  status      String   @default("published") @db.VarChar(30)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+
+  story     BiblicalStory? @relation(fields: [storyId], references: [id], onDelete: SetNull)
+  level     Level @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  progresses UserProgress[]
+
+  @@index([storyId])
+  @@index([levelId])
+  @@index([type])
+  @@map("games")
+}
+
+// ============================================================================
+// PROGRESO DEL USUARIO
+// ============================================================================
+
+model UserProgress {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  levelId   String   @map("level_id") @db.Uuid
+  gameId    String?  @map("game_id") @db.Uuid
+  score     Int      @default(0)
+  completed Boolean  @default(false)
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level Level @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  game  Game? @relation(fields: [gameId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, levelId, gameId])
+  @@index([userId])
+  @@index([levelId])
+  @@index([completed])
+  @@map("user_progresses")
+}
+
+// ============================================================================
+// FAVORITOS DEL USUARIO
+// ============================================================================
+
+model UserFavorite {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  storyId   String   @map("story_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  story BiblicalStory @relation("StoryFavorites", fields: [storyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storyId])
+  @@index([userId])
+  @@map("user_favorites")
+}
+
+// ============================================================================
+// PLANES DE LECTURA
+// ============================================================================
+
+model ReadingPlan {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String   @db.VarChar(200)
+  description String?  @db.Text
+  duration    Int      // días
+  startDate   DateTime @map("start_date") @db.Date
+  status      String   @default("published") @db.VarChar(30)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz
+
+  @@index([status])
+  @@map("reading_plans")
+}

@@ -1,0 +1,12 @@
+export { createBiblicalStorySchema, updateBiblicalStorySchema } from './historia.validation';
+export type { CreateBiblicalStory, UpdateBiblicalStory } from './historia.validation';
+export { createLevelSchema, updateLevelSchema } from '../niveles/nivel.validation';
+export type { CreateLevel, UpdateLevel } from '../niveles/nivel.validation';
+export { createGameSchema, updateGameSchema } from '../juegos/juego.validation';
+export type { CreateGame, UpdateGame } from '../juegos/juego.validation';
+export { createUserProgressSchema, updateUserProgressSchema } from '../progresos/progreso.validation';
+export type { CreateUserProgress, UpdateUserProgress } from '../progresos/progreso.validation';
+export { createUserFavoriteSchema } from '../favoritos/favorito.validation';
+export type { CreateUserFavorite } from '../favoritos/favorito.validation';
+export { createReadingPlanSchema, updateReadingPlanSchema } from '../planes-lectura/plan.validation';
+export type { CreateReadingPlan, UpdateReadingPlan } from '../planes-lectura/plan.validation';
