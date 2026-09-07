@@ -98,10 +98,10 @@ Mantenga `BYPASS_AUTH=false` y `BYPASS_ACCESS_CONTROL=false` para probar segurid
 ```bash
 docker compose up -d
 docker compose ps
-curl -I http://localhost:8081/realms/canchago
+curl -I http://localhost:8081/realms/biblia
 ```
 
-Compose inicia Keycloak 26, publica el puerto 8081 e importa `keycloak/realm-canchago.json`. Espere el estado saludable. El realm contiene clientes y cuentas didácticas: `futbolista`, `gestor` y `administrador`, con contraseña pública de laboratorio `canchago123`. Nunca reutilice esas credenciales ni despliegue el realm sin cambiarlas.
+Compose inicia Keycloak 26, publica el puerto 8081 e importa `keycloak/realm-canchago.json`. Espere el estado saludable. El realm contiene clientes y cuentas didácticas: `administrador`, con contraseña pública de laboratorio `bibliakids123`. Nunca reutilice esas credenciales ni despliegue el realm sin cambiarlas.
 
 Keycloak importa el JSON al crear el contenedor, no en cada inicio. Si modifica el realm y trabaja en un laboratorio desechable:
 
@@ -112,7 +112,7 @@ docker compose up -d
 
 ### 6. Aplicar migraciones y ejecutar las semillas obligatorias
 
-Una **semilla** (_seed_) introduce los datos mínimos que la aplicación necesita para funcionar. En Canchago hay dos semillas diferentes y deben ejecutarse en este orden, después de las migraciones:
+Una **semilla** (_seed_) introduce los datos mínimos que la aplicación necesita para funcionar. En biblia hay dos semillas diferentes y deben ejecutarse en este orden, después de las migraciones:
 
 ```bash
 # 1. Crear o actualizar la estructura de tablas en desarrollo.
@@ -131,11 +131,25 @@ No omita ni invierta los dos últimos comandos: `seed-dev` busca los permisos cr
 
 Ejecuta `prisma/seed.ts` a través de la configuración oficial de Prisma y crea estos 12 permisos:
 
-- Usuarios: `users.read`, `users.create`, `users.update`, `users.delete` y `users.manage`.
-- Organizaciones: `organizaciones.read` y `organizaciones.manage`.
-- Sedes: `sedes.read` y `sedes.manage`.
-- Roles: `roles.read` y `roles.manage`.
-- Permisos: `permisos.read`.
+Usuarios: `usuarios.read`, `usuarios.create`, `usuarios.update`, `usuarios.delete`, `usuarios.manage`.
+
+Historias: `historias.read`, `historias.create`, `historias.update`, `historias.delete`.
+
+Niveles: `niveles.read`, `niveles.create`, `niveles.update`, `niveles.delete`.
+
+Juegos: `juegos.read`, `juegos.create`, `juegos.update`, `juegos.delete`.
+
+Progreso: `progreso.read`, `progreso.create`, `progreso.update`, `progreso.delete`.
+
+Favoritos: `favoritos.read`, `favoritos.create`, `favoritos.delete`.
+
+Planes de lectura: `planes.read`, `planes.create`, `planes.update`, `planes.delete`.
+
+Libros: `libros.read`.
+
+Capítulos: `capitulos.read`.
+
+Versículos: `versiculos.read`.
 
 La semilla consulta cada código antes de crearlo. Puede volver a ejecutarla: los permisos existentes se conservan y aparecen en la terminal como `Permiso ya existe`.
 
@@ -143,12 +157,10 @@ La semilla consulta cada código antes de crearlo. Puede volver a ejecutarla: lo
 
 Ejecuta `prisma/seed-dev.ts` y prepara datos de desarrollo:
 
-1. Reutiliza la organización activa llamada `Cancha 2` si existe.
-2. Si no existe, reutiliza la primera organización activa disponible.
-3. Si la base todavía no tiene organizaciones, crea `Biblia Kids Demo` con estado `ACTIVE`.
-4. Crea los roles globales `Libro` (`Libro`) y `Administrador` (`administrador`).
-5. Crea `Gestor de Historia` (`gestor-de-historia`) asociado con la organización resuelta anteriormente.
-6. Concede al rol `Administrador` todos los permisos existentes en el catálogo.
+1. Crear roles base: `Administrador`, `Libro` y `Gestor de Historia`.
+2. Asignar permisos: el rol `Administrador` recibe todos los permisos del catálogo (`usuarios`, `historias`, `niveles`, `juegos`, `progreso`, `favoritos`, `planes de lectura`, `libros`, `capítulos`, `versículos`).
+3. Roles adicionales: `Libro` y `Gestor de Historia` se crean sin depender de organizaciones ni sedes.
+4. Upsert seguro: el script usa upsert para evitar duplicados y permitir repetir la semilla cuando se agreguen nuevos permisos.
 
 También es segura para repetición: busca los roles activos antes de crearlos y usa una operación `upsert` para las relaciones entre Administrador y permisos. Conviene repetir ambas semillas cuando una migración o feature añada permisos nuevos:
 
@@ -168,10 +180,11 @@ yarn prisma-studio
 
 En `http://localhost:5555`, compruebe:
 
-- `Permission`: 12 códigos base.
-- `Role`: `libro`, `administrador` y `gestor-de-historia`.
-- `RolePermission`: relaciones del rol Administrador con todos los permisos.
-- `Organization`: al menos una organización activa para el rol de gestor.
+Permission: catálogo con todos los códigos de permisos reales (usuarios, historias, niveles, juegos, progreso, favoritos, planes de lectura, libros, capítulos, versículos).
+Role: `libro`, `administrador`, `gestor-de-historia`.
+RolePermission: relaciones del rol `administrador` con todos los permisos del catálogo.
+Sin organizaciones: no se requiere ninguna organización activa; los roles son globales y no dependen de sedes ni entidades externas.
+
 
 Prisma Studio se detiene con `Ctrl+C`. No edite datos compartidos desde Studio sin comprender su alcance.
 
@@ -188,7 +201,7 @@ El procedimiento de bootstrap es:
    yarn dev
    ```
 
-2. Inicie sesión una vez con `administrador` / `bibliakids123`, usando el frontend o `http://localhost:3000/api/auth/login`. Esto sincroniza `administrador@canchago.local` en PostgreSQL. Después cierre sesión.
+2. Inicie sesión una vez con `administrador` / `bibliakids123`, usando el frontend o `http://localhost:3000/api/auth/login`. Esto sincroniza `administrador@biblia.local` en PostgreSQL. Después cierre sesión.
 
 3. En otra terminal, desde `bibliakids/`, asigne el rol global:
 
@@ -247,7 +260,7 @@ Debe responder `200`. Swagger UI está en `http://localhost:3000/api/docs`; un `
 ### Autenticación real
 
 - Navegador: `GET /api/auth/login` usa Authorization Code + OIDC + PKCE y una cookie `HttpOnly` cifrada.
-- Capacitor: `POST /api/auth/mobile/login` usa `canchago-mobile`, devuelve una sesión Bearer y el cliente la guarda en almacenamiento nativo seguro.
+- Capacitor: `POST /api/auth/mobile/login` usa `Bi-mobile`, devuelve una sesión Bearer y el cliente la guarda en almacenamiento nativo seguro.
 
 El flujo móvil usa Resource Owner Password Credentials por decisión explícita de su feature. Es una excepción del laboratorio que contradice una prohibición antigua aún presente en parte de la constitución; requiere revisión antes de producción.
 
