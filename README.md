@@ -101,7 +101,7 @@ docker compose ps
 curl -I http://localhost:8081/realms/biblia
 ```
 
-Compose inicia Keycloak 26, publica el puerto 8081 e importa `keycloak/realm-canchago.json`. Espere el estado saludable. El realm contiene clientes y cuentas didácticas: `administrador`, con contraseña pública de laboratorio `bibliakids123`. Nunca reutilice esas credenciales ni despliegue el realm sin cambiarlas.
+Compose inicia Keycloak 26, publica el puerto 8081 e importa `keycloak/realm-bibliakids.json`. Espere el estado saludable. El realm contiene clientes y cuentas didácticas: `administrador`, con contraseña pública de laboratorio `bibliakids123`. Nunca reutilice esas credenciales ni despliegue el realm sin cambiarlas.
 
 Keycloak importa el JSON al crear el contenedor, no en cada inicio. Si modifica el realm y trabaja en un laboratorio desechable:
 
